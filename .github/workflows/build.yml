@@ -1,0 +1,62 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            target: godot-nodepath-linux
+          - os: windows-latest
+            rid: win-x64
+            target: godot-nodepath-win.exe
+          - os: macos-latest
+            rid: osx-x64
+            target: godot-nodepath-macos
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Publish Single File
+      run: |
+        dotnet publish -c Release \
+          -r ${{ matrix.rid }} \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
+          -o ./publish
+
+    - name: Rename Binary
+      shell: bash
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          mv ./publish/*.exe ./publish/${{ matrix.target }}
+        else
+          find ./publish -type f -executable -exec mv {} ./publish/${{ matrix.target }} \;
+        fi
+
+    - name: Release to GitHub
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: Latest Build
+        draft: false
+        prerelease: false
+        # This will overwrite the files in the "latest" release tag
+        files: ./publish/${{ matrix.target }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
