@@ -43,8 +43,13 @@ jobs:
       shell: bash
       run: |
         if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          # Windows: move the .exe file
           mv ./publish/*.exe ./publish/${{ matrix.target }}
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+          # macOS: Use -perm to find executable files (BSD find compatible)
+          find ./publish -type f \( -perm -111 -o -perm -100 \) -exec mv {} ./publish/${{ matrix.target }} \;
         else
+          # Linux: GNU find
           find ./publish -type f -executable -exec mv {} ./publish/${{ matrix.target }} \;
         fi
 
