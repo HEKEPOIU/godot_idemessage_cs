@@ -1,13 +1,27 @@
 name: Build and Release
-
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  build-and-release:
+  create-tag:
+    runs-on: ubuntu-latest
     permissions:
-        contents: write
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate tag
+        id: tag
+        run: |
+          TAG="v$(date +'%Y%m%d%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+  build-and-release:
+    needs: create-tag
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -20,50 +34,39 @@ jobs:
           - os: macos-latest
             rid: osx-x64
             target: godot-nodepath-macos
-
     runs-on: ${{ matrix.os }}
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-
-    - name: Publish Single File
-      shell: bash
-      run: |
-        dotnet publish -c Release \
-          -r ${{ matrix.rid }} \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -o ./publish
-
-    - name: Rename Binary
-      shell: bash
-      run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          # Windows: move the .exe file
-          mv ./publish/*.exe ./publish/${{ matrix.target }}
-        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-          # macOS: Use -perm to find executable files (BSD find compatible)
-          find ./publish -type f \( -perm -111 -o -perm -100 \) -exec mv {} ./publish/${{ matrix.target }} \;
-        else
-          # Linux: GNU find
-          find ./publish -type f -executable -exec mv {} ./publish/${{ matrix.target }} \;
-        fi
-
-    - name: Release to GitHub
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: latest
-        name: Latest Build
-        draft: false
-        prerelease: false
-        # This will overwrite the files in the "latest" release tag
-        files: ./publish/${{ matrix.target }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish Single File
+        shell: bash
+        run: |
+          dotnet publish -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o ./publish
+      - name: Rename Binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv ./publish/*.exe ./publish/${{ matrix.target }}
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            find ./publish -type f \( -perm -111 -o -perm -100 \) -exec mv {} ./publish/${{ matrix.target }} \;
+          else
+            find ./publish -type f -executable -exec mv {} ./publish/${{ matrix.target }} \;
+          fi
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.create-tag.outputs.tag }}
+          name: "Build ${{ needs.create-tag.outputs.tag }}"
+          draft: false
+          prerelease: false
+          files: ./publish/${{ matrix.target }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

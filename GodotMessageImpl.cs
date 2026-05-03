@@ -1,23 +1,6 @@
 using GodotTools.IdeMessaging;
 
 
-class GodotClient(string identifier, string projectPath, IMessageHandler messageHandler, ILogger logger)
-{
-    private readonly string _Client_IDENTIFIER = identifier;
-    private string _projectPath = projectPath;
-    private IMessageHandler _messageHandler = messageHandler;
-    private ILogger _logger = logger;
-
-    private Client _client;
-
-    async public Task StartAsync() {
-        _client = new Client(_Client_IDENTIFIER, _projectPath, _messageHandler, _logger);
-        _client.Start();
-        await _client.AwaitConnected();
-        return;
-    }
-}
-
 class GNPMessageHandler : IMessageHandler
 {
     public async Task<MessageContent> HandleRequest(Peer peer, string id, MessageContent content, ILogger logger)

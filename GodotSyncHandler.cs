@@ -12,7 +12,7 @@ using GodotTools.IdeMessaging;
 
 public class DocumentStore(ILogger logger)
 {
-    private readonly Dictionary<string, string> _docs = new();
+    private readonly Dictionary<string, string> _docs = [];
     private readonly ILogger _logger = logger;
 
     public void Update(string uri, string text) => _docs[uri] = text;
@@ -47,7 +47,7 @@ public class DocumentStore(ILogger logger)
         return null;
     }
 
-    private CodeCompletionRequest.CompletionKind? MapCompletionKind(string methodName)
+    private static CodeCompletionRequest.CompletionKind? MapCompletionKind(string methodName)
     {
         return methodName switch
         {
@@ -84,10 +84,8 @@ public class DocumentStore(ILogger logger)
             _ => null
         };
     }
-    private string GetMethodName(ExpressionSyntax expression)
+    private static string GetMethodName(ExpressionSyntax expression)
     {
-
-
         if (expression is IdentifierNameSyntax id)
         {
             return id.Identifier.Text;
@@ -107,7 +105,7 @@ public class DocumentStore(ILogger logger)
 
 public class GodotSyncHandler(DocumentStore store) : ITextDocumentSyncHandler
 {
-    public TextDocumentSyncKind Change => TextDocumentSyncKind.Full;
+    public static TextDocumentSyncKind Change => TextDocumentSyncKind.Full;
 
     public TextDocumentChangeRegistrationOptions GetRegistrationOptions(
         TextSynchronizationCapability capability,
@@ -123,7 +121,6 @@ public class GodotSyncHandler(DocumentStore store) : ITextDocumentSyncHandler
         return Unit.Task;
     }
 
-    // DidChange：Full sync → 直接覆蓋
     public Task<Unit> Handle(DidChangeTextDocumentParams request, CancellationToken ct)
     {
         var text = request.ContentChanges.LastOrDefault()?.Text;
@@ -138,7 +135,6 @@ public class GodotSyncHandler(DocumentStore store) : ITextDocumentSyncHandler
         return Unit.Task;
     }
 
-    // DidSave：不需要額外處理
     public Task<Unit> Handle(DidSaveTextDocumentParams request, CancellationToken ct)
         => Unit.Task;
 
